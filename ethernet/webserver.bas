@@ -1,5 +1,6 @@
 ' Applesoft BASIC Webserver
 ' by Vince Weaver <vince@deater.net>
+' additions from Ricardo Contieri <ricardo.contieri@gmail.com>
 '
 1 REM *** Setup UTHERNET II - W5100
 ' SLOT0=$C080	49280	SLOT4=$C0C0	49344
@@ -9,36 +10,46 @@
 '
 ' Set up the memory addresses to use
 '
-2 REM *** OURS IS IN SLOT3 ($C0B0)
-3 SLOT=49328: REM *** $C0B0
-4 MR=SLOT+4: REM *** MODE REGISTER C0B4
-5 HA=SLOT+5:LA=SLOT+6: REM *** HIGH/LOW ADDR $C0B5,$C0B6
+2 GOSUB 10000: REM *** SENDING TO SLOT SETUP *** OURS IS IN SLOT3 ($C0B0)
+4 MR = SLOT + 4: REM  *** MODE REGISTER C0x4
+5 HA=SLOT+5:LA=SLOT+6: REM *** HIGH/LOW ADDR $C0x5,$C0x6
 7 DP=SLOT+7: REM *** DATA PORT $C0B7
 '
 ' Init the W5100
 '
-10 REM *** Init W5100
-12 POKE MR,128 : REM RESET W5100
-14 POKE MR,3 : REM AUTOINCREMENT
-20 REM *** Setup MAC Address 41:50:50:4c:45:32
-22 POKE HA,0:POKE LA,9
-23 POKE DP,65:POKE DP,80:POKE DP,80:POKE DP,76:POKE DP,69:POKE DP,50
-30 REM *** Setup IP Address 192.168.8.15
-32 POKE LA,15
-33 POKE DP,192:POKE DP,168:POKE DP,8:POKE DP,15
-40 PRINT "UTHERNET II READY: 192.168.8.15"
+ 10  REM  *** Init W5100
+ 12  POKE MR,128: REM  RESET W5100
+ 14  POKE MR,3: REM  AUTOINCREMENT
+ 20  REM  *** Setup MAC Address 41:50:50:4c:45:32
+ 22  POKE HA,0: POKE LA,9
+ 23  POKE DP,65: POKE DP,80: POKE DP,80: POKE DP,76: POKE DP,69: POKE DP,50
+ 30  REM  *** Setup IP Address 192.168.8.15
+ 31  PRINT "Setup IP Address:" IA"."IB"."IC"."ID
+ 32  POKE LA,15
+ 33  POKE DP,IA: POKE DP,IB: POKE DP,IC: POKE DP,ID
+ 40  PRINT "UTHERNET II READY:" IA"."IB"."IC"."ID
 '
 ' Setup Machine Language Memcpy routine
 '   NOTE! This code assumes the Uthernet is in slot 3
 '   FIXME: patch on the fly once it works
 '   See Appendix 1 at the end of this for more details
 '
-50 FOR I=0 TO 72: READ X: POKE 768+I,X:NEXT I
 51 DATA 169,0,133,6,169,64,133,7,162,11,240,36,160,0,177,6
 52 DATA 141,183,192,213,9,208,15,217,8,0,208,10,169,64,141,181
 53 DATA 192,169,0,141,182,192,200,208,229,230,7,202,208,224,162,10
 54 DATA 177,6,141,183,192,217,8,0,208,10,169,64,141,181,192,169
 55 DATA 0,141,182,192,200,202,208,232,96
+60 FOR I=0 TO 72: READ X: POKE 768+I,X:NEXT I
+'
+'Still not sure how to adapt this part of the code to properly read the Slot variables, although could find where they would fit.
+'51 DATA 169,0,133,6,169,64,133,7,162,11,240,36,160,0,177,6
+'52 DATA 141,DD,192,213,9,208,15,217,8,0,208,10,169,64,141,DH
+'56 DATA 192,169,0,141,DL,192,200,208,229,230,7,202,208,224,162,10
+'57 DATA 177,6,141,DP,192,217,8,0,208,10,169,64,141,DH,192,169
+'58 DATA 0,141,DL,192,200,202,208,232,96
+'
+'
+'
 '
 ' Setup Socket 0
 '
@@ -323,7 +334,66 @@
 9220 POKE 16383+I,ASC(MID$(M$,I,1))
 9300 NEXT I
 9310 GOTO 1380
+'                                                      
+'Slot selection
+ 10000 ? "Welcome to the WEBSERVER for the Uthernet II"
+10050 ? "Which SLOT is your board? (0-7) - Press 8 for detection tool (may need to restart computer)": INPUT S 
+ 10060 IF S > = 9 THEN ? "Error, please select value from 0 to 7": GOTO 10050
+ 10070 IF S = 8 THEN GOTO 11000
+ 10110 IF S = 0 THEN SLOT = 49280: DM = 132: REM DMR, DHA, DLA and DDP are conversions used in the DATA routine.
+ 10120 IF S = 1 THEN SLOT = 49296: DM = 148
+ 10130 IF S = 2 THEN SLOT = 49312: DM = 164
+ 10140 IF S = 3 THEN SLOT = 49328: DM = 180
+ 10150 IF S = 4 THEN SLOT = 49344: DM = 196
+ 10160 IF S = 5 THEN SLOT = 49360: DM = 212
+ 10170 IF S = 6 THEN SLOT = 49376: DM = 228
+ 10180 IF S = 7 THEN SLOT = 49392: DM = 244
+ 10200 DH = DM + 1
+ 10210 DL = DM + 2
+ 10220 DD = DM + 3
+ 
+'IP Change tool                                                                         
+ 10300 ? "Would you like to change current IP Address?"
+ 10310 IA = 192
+ 10320 IB = 168
+ 10330 IC = 1
+ 10340 ID = 20
+ 10350 ? "Current IP is:"IA"."IB"."IC"."ID" Continue with this? (Yes/No)": INPUT IP$
+ 10400 IF IP$ = "Y" THEN RETURN
+ 10500 ? "What value for 1st segment? Current: "IA" :": INPUT IA
+ 10510 ? "What value for 2nd segment? Current: "IB" :": INPUT IB
+ 10520 ? "What value for 3rd segment? Current: "IC" :": INPUT IC
+ 10530 ? "What value for 4th segment? Current: "ID" :": INPUT ID
+ 10540 GOTO 10350
 '
+'                                                                            
+' Uthernet II Slotfinder - Based on code from Uthernet Manual
+11000 HOME 
+11010  PRINT "Uthernet II Slotfinder"
+11020  VTAB 4
+11030  PRINT "This test is memory disruptive. A clean reboot is recommended after using it."
+11050 ADD = 49392
+11060 SLOT = 7
+11070  VTAB 7
+11080  PRINT "Slot:  Result   :Address:Data Found"
+11100  POKE ADD,128
+11120  POKE ADD,3
+11140 CHECK =  PEEK (ADD)
+11190 R$ = "Not found"
+11200  IF CHECK = 3 THEN R$ = "Possible!"
+11400  PRINT "  "SLOT" : "R$" : "ADD" : "CHECK
+11450  IF SLOT = 0 GOTO 12000
+11500 SLOT = SLOT - 1
+11510 ADD = ADD - 16
+11600  IF SLOT = 0 GOTO 11900
+11700  GOTO 11100
+11900  VTAB 16
+12000  PRINT "Would you like to test slot Zero? May crash! (Yes / No)": INPUT Z$
+12010  IF Z$ = "Y" THEN  GOTO 11100
+12100  GOTO 10050
+
+20000 RETURN
+ 
 ' STATUSES
 '	p28 of W5100 manual
 '	0x0	0	SOCK_CLOSED
